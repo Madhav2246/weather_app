@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 Weather App</h1>
+        <form method="POST" class="search-form">
+            <input type="text" name="city" placeholder="Enter city name..." required>
+            <button type="submit">🔍 Search</button>
+        </form>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        {% if weather %}
+            <div class="weather-card">
+                <h2>{{ weather.city }}</h2>
+                <p>{{ weather.description }}</p>
+                <p>🌡 {{ weather.temp }}°C (Feels like {{ weather.feels_like }}°C)</p>
+                <p>💧 Humidity: {{ weather.humidity }}%</p>
+                <p>💨 Wind: {{ weather.wind }} m/s</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Canvas for animations -->
+    <canvas id="weatherCanvas"></canvas>
+
+    <script>
+        const condition = "{{ condition }}";
+        const timeOfDay = "{{ time_of_day }}";
+        const canvas = document.getElementById("weatherCanvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        window.onresize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+
+        // ================== ANIMATIONS ==================
+
+        // Clear Day
+        function clearDay() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, "#87CEEB");
+            gradient.addColorStop(1, "#ffffff");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.arc(150, 150, 60, 0, Math.PI * 2);
+            ctx.fillStyle = "yellow";
+            ctx.fill();
+        }
+
+        // Clear Night
+        function clearNight() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < 200; i++) {
+                ctx.fillStyle = "white";
+                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
+            }
+            ctx.beginPath();
+            ctx.arc(150, 150, 50, 0, Math.PI * 2);
+            ctx.fillStyle = "lightgray";
+            ctx.fill();
+        }
+
+        // Clouds
+        function cloudy() {
+            let clouds = [];
+            class Cloud {
+                constructor(x, y) { this.x = x; this.y = y; }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 40, 0, Math.PI * 2);
+                    ctx.arc(this.x + 50, this.y, 50, 0, Math.PI * 2);
+                    ctx.arc(this.x + 100, this.y, 40, 0, Math.PI * 2);
+                    ctx.fillStyle = "#f0f0f0";
+                    ctx.fill();
+                }
+                move() {
+                    this.x += 0.4;
+                    if (this.x > canvas.width + 150) this.x = -200;
+                    this.draw();
+                }
+            }
+            for (let i = 0; i < 6; i++) clouds.push(new Cloud(i * 300, 100 + Math.random() * 200));
+            function animate() {
+                clearDay();
+                clouds.forEach(c => c.move());
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Rain
+        function rain() {
+            let drops = [];
+            for (let i = 0; i < 250; i++) drops.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, l: Math.random() * 20});
+            function animate() {
+                clearDay();
+                ctx.strokeStyle = "blue"; ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (let d of drops) {
+                    ctx.moveTo(d.x, d.y);
+                    ctx.lineTo(d.x, d.y + d.l);
+                    d.y += 4;
+                    if (d.y > canvas.height) d.y = -20;
+                }
+                ctx.stroke();
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Snow
+        function snow() {
+            let flakes = [];
+            for (let i = 0; i < 200; i++) flakes.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: Math.random() * 4 + 1});
+            function animate() {
+                clearDay();
+                ctx.fillStyle = "white";
+                for (let f of flakes) {
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+                    ctx.fill();
+                    f.y += 1;
+                    if (f.y > canvas.height) f.y = -5;
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Thunderstorm
+        function thunderstorm() {
+            let drops = [];
+            for (let i = 0; i < 300; i++) drops.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, l: Math.random() * 20});
+            function animate() {
+                ctx.fillStyle = "rgb(20,20,30)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = "lightblue"; ctx.lineWidth = 1; ctx.beginPath();
+                for (let d of drops) {
+                    ctx.moveTo(d.x, d.y);
+                    ctx.lineTo(d.x, d.y + d.l);
+                    d.y += 6;
+                    if (d.y > canvas.height) d.y = -20;
+                }
+                ctx.stroke();
+                if (Math.random() > 0.985) {
+                    ctx.fillStyle = "rgba(255,255,255,0.8)";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.beginPath();
+                    let x = Math.random() * canvas.width, y = 0; ctx.moveTo(x, y);
+                    while (y < canvas.height) {
+                        x += (Math.random() - 0.5) * 80;
+                        y += 40; ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Haze / Mist / Fog
+        function hazeFog() {
+            function animate() {
+                ctx.fillStyle = "rgba(200,200,200,0.2)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                for (let i = 0; i < 50; i++) {
+                    ctx.fillStyle = "rgba(220,220,220,0.05)";
+                    ctx.beginPath();
+                    ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, 100, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Windy
+        function windy() {
+            let leaves = [];
+            for (let i = 0; i < 100; i++) leaves.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: 4});
+            function animate() {
+                clearDay();
+                ctx.fillStyle = "green";
+                for (let l of leaves) {
+                    ctx.beginPath();
+                    ctx.ellipse(l.x, l.y, l.r, l.r/2, Math.PI/4, 0, Math.PI*2);
+                    ctx.fill();
+                    l.x += 2; l.y += Math.sin(l.x/30);
+                    if (l.x > canvas.width) l.x = -10;
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Trigger animations
+        if (condition.includes("clear") && timeOfDay === "day") clearDay();
+        else if (condition.includes("clear") && timeOfDay === "night") clearNight();
+        else if (condition.includes("cloud")) cloudy();
+        else if (condition.includes("rain")) rain();
+        else if (condition.includes("snow")) snow();
+        else if (condition.includes("thunderstorm")) thunderstorm();
+        else if (condition.includes("haze") || condition.includes("mist") || condition.includes("fog")) hazeFog();
+        else if (condition.includes("wind")) windy();
+    </script>
+</body>
+</html>
